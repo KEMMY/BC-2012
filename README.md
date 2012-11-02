@@ -1,4 +1,4 @@
 BC-2012
 =======
 
-Moja bakalárka
+Repozitár pre bakalársku prácu 2012
