@@ -1,0 +1,7 @@
+import os
+import shutil
+src = "/home/kmm/Plocha/source/subor1"
+trg = "/home/kmm/Plocha/target/zaloha"
+kam = "/home/kmm/Plocha/target/zaloha2"
+shutil.copy(src,trg)
+os.mkdir(kam)
