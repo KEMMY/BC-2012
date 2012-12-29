@@ -1,0 +1,70 @@
+import pickle
+import md5
+import os
+import sys
+from stat import *
+import shutil
+
+def hash_file_names(file_name):
+    return (md5.md5(file_name).hexdigest())
+
+def meta_maker(source_file,target_path):
+    source_stat = os.stat(source_file)
+    pickle_file_adress = target_path + ".pkl" 
+    pkl_file = open(pickle_file_adress,"wb")
+    pickle.dump(source_stat,pkl_file)
+    pkl_file.close()
+
+def tree_copy(source,target,path):
+    src = os.path.join(source,path)
+    trg = os.path.join(target,path)
+    for f in os.listdir(src):
+        src_path = os.path.join(src, f)
+        mode = os.stat(src_path).st_mode
+        print(mode)
+        if S_ISDIR(mode):
+            # It's a directory
+            print "os.mkdir(%s)" % (trg)
+            dst_f = os.path.join(trg,f)
+            os.mkdir(dst_f)
+            tree_copy(src,trg,f)
+
+        elif S_ISREG(mode):
+            print (path)
+            print "shutil.copy(%s,%s)" % (src,trg)
+            target_f = os.path.join(trg,f)
+            shutil.copy(src_path,target_f)            
+        else:
+            # Unknown file type, print a message
+            print('Skipping %s' % pathname)            
+
+def tree_copy_with_meta_maker(source,target,path):
+    src = os.path.join(source,path)
+    trg = os.path.join(target,path)
+    for f in os.listdir(src):
+        src_path = os.path.join(src, f)
+        mode = os.stat(src_path).st_mode
+        print(mode)
+        if S_ISDIR(mode):
+            # It's a directory
+            print "os.mkdir(%s)" % (trg)
+            dst_f = os.path.join(trg,f)
+            os.mkdir(dst_f)
+            tree_copy_with_meta_maker(src,trg,f)
+
+        elif S_ISREG(mode):
+            print (path)
+            print "shutil.copy(%s,%s)" % (src,trg)
+            target_f = os.path.join(trg,f)
+            meta_f = os.path.join(target,f)
+            shutil.copy(src_path,target_f)
+            meta_maker(src_path,meta_f)
+        else:
+            # Unknown file type, print a message
+            print('Skipping %s' % pathname)
+
+'''tree_copy("/home/kmm/Plocha/source/","/home/kmm/Plocha/target/zaloha","")'''
+tree_copy_with_meta_maker("/home/kmm/Plocha/source/","/home/kmm/Plocha/target/zaloha","")
+x = hash_file_names("/home/kmm/Plocha/target/zaloha/subor1.pkl")
+print (x)
+os.renames("/home/kmm/Plocha/target/zaloha/subor1.pkl",x)
