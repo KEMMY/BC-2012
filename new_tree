@@ -5,15 +5,30 @@ import sys
 from stat import *
 import shutil
 
+'''
+hash_file - skusal som nahradzat nazvy suborov ich hasmi, 
+funkciu zatial nevyuzivam 
+'''
 def hash_file_names(file_name):
     return (md5.md5(file_name).hexdigest())
 
+'''
+funkcia zoberie zdrojovy subor a o uroven vysie
+v cielom adresari zapikluje jeho meta data
+'''
 def meta_maker(source_file,target_path):
     source_stat = os.stat(source_file)
     pickle_file_adress = target_path + ".pkl" 
     pkl_file = open(pickle_file_adress,"wb")
     pickle.dump(source_stat,pkl_file)
     pkl_file.close()
+
+'''
+obycajne kopirovanie stromu konecne s 3 paranetrami,
+takto odpadaju moje funkcie chage_adress a podobne
+neprijemnosti s path-mi 
+dakujem Vam za radu
+'''
 
 def tree_copy(source,target,path):
     src = os.path.join(source,path)
@@ -37,6 +52,10 @@ def tree_copy(source,target,path):
         else:
             # Unknown file type, print a message
             print('Skipping %s' % pathname)            
+
+'''
+to iste + aj vytvaranie meta o uroven vysie
+'''
 
 def tree_copy_with_meta_maker(source,target,path):
     src = os.path.join(source,path)
