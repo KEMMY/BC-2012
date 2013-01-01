@@ -14,7 +14,8 @@ def make_hash(o):
     for k, v in o.items():
       if not k.startswith("__"):
         o2[k] = v
-    o = o2  
+    o = o2 
+    return hashlib.sha1(o)
   if isinstance(o, set) or isinstance(o, tuple) or isinstance(o, list):
       return tuple([make_hash(e) for e in o])    
   elif not isinstance(o, dict):
