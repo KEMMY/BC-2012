@@ -6,44 +6,38 @@ from stat import *
 import shutil
 
 
-import copy
-
-def make_hash(o):
-  if type(o) == type(object.__dict__):
-    o2 = {}
-    for k, v in o.items():
-      if not k.startswith("__"):
-        o2[k] = v
-    o = o2 
-    return hashlib.sha1(o)
-  if isinstance(o, set) or isinstance(o, tuple) or isinstance(o, list):
-      return tuple([make_hash(e) for e in o])    
-  elif not isinstance(o, dict):
-      return hashlib.sha1(o)
     
-def pickluj(dictionary,path):
-    file_name = make_hash(dictionary)
+ef pickluj(src_dict,path):
     path += ".pkl"
     pkl_file = open(path,"wb")
-    pickle.dump(dictionary,pkl_file)
+    str_dict = str(src_dict)
+    # x = hashlib.sha1(str_dict) can't pickle HASH objects
+    pickle.dump(str_dict,pkl_file)
     pkl_file.close()
     #os.renames(path,file_name)??? tento posledny krok nefunguje nechapem chybe interpretra
 
+
+    # Skuska dict to string pomocov pikle
+
     
 def make_dict(src):
-    dict = {'':''}
+    src_dict = {}
     for F in os.listdir(src):
         nextpath = os.path.join(src,F)
         mode = os.stat(nextpath).st_mode
         if S_ISREG(mode):
             stat = os.stat(nextpath)
+            typ = "Blob"
             file_name = os.path.basename(nextpath)
-            dict = {file_name : stat}    
+            hash_file_name = hashlib.sha1(file_name) #iba skuska hashovania nazvu  
+            value = str(mode) +" "+ typ + " " + str(hash_file_name) + " " + file_name
+            src_dict[file_name] = value    
             
         else:
             # Directory or Unknown file type, print a message
             print('Skipping %s' % nextpath)
-    pickluj(dict,src)
+    pickluj(src_dict,src)
+    print (src_dict)
 
 
 
