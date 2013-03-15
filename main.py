@@ -10,6 +10,8 @@ def main():
     print b.target
     print b.__class__
     print (b.initial_backup())
+    E = BackupObject.make_backup_object('/home/kmm/Plocha/source/new/subor1')
+    print E.inc_backup()
     '''#b.make_backup_object(b.source,b.target)
     if S_ISDIR(b.mode):
         print ("toto je adresar")
