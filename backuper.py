@@ -222,6 +222,8 @@ class BackupLnk(BackupObject):
 
         
     def initial_backup(self):
-        self.make_Lnk(self.read_Lnk())
+          # return self.make_side_dict(self.make_Lnk(self.read_Lnk()))
+        hash_name = self.make_Lnk(self.read_Lnk())
+        return self.make_side_dict(hash_name)
         
 
