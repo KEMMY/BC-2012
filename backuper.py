@@ -242,7 +242,7 @@ class SourceFile(SourceObject):
 			# ak sa zmenili iba metadata tak ich dopln do slovnika ale nekopiruj subor
                         return self.make_side_dict(side_dict['hash'])
 	else: # vrat pozmeneni slovnik
-		return self.initial_backup
+		return self.initial_backup()
 			
 		
 class SourceDir(SourceObject):
@@ -319,7 +319,7 @@ class SourceLnk(SourceObject):
 		# ak sa zmenili iba metadata tak ich dopln do slovnika ale nekopiruj subor
                 return self.make_side_dict(side_dict['hash'])
 	else: # vrat pozmeneni slovnik
-	return self.initial_backup
+	return self.initial_backup()
 
 class TargetFile(TargetObject):
 
