@@ -95,30 +95,8 @@ class LatestBackUp(Backup):
 class BackupObject():
     
     @staticmethod
-    def _create_backup_object(pathname, target, stat, side_dict):
-        mode = stat.st_mode
-        if S_ISDIR(mode):
-            return BackupDir(pathname, target, stat, side_dict)
-        elif S_ISREG(mode):
-            return BackupFile(pathname, target, stat, side_dict)
-        elif S_ISLNK(mode):
-            return BackupLnk(pathname, target, stat, side_dict)
-        else:
-            # Unknown file 
-            return None
-
-    @staticmethod
     def new_backup_object(pathname, target, side_dict):
         stat = os.stat(pathname)
-        '''
-        self.pathname = pathname
-        self.target = target
-        self.side_dict = side_dict ak nieje none ... ak je None ziska ho pri Initial_backup ?
-        return BackupObject._create_backup_object(self.pathname, self.target, self.stat, self.side_dict)
-        MULTIPLICITA premennych ???
-
-        self. >>> @staticmethod nepouzivaju
-        '''
         return BackupObject._create_backup_object( pathname, target,stat, side_dict)
 
     @staticmethod
@@ -134,6 +112,14 @@ class BackupObject():
         # hore ?
         return BackupObject._create_backup_object(pathname, target, stat, side_dict)
 
+    @staticmethod
+    def stat(lstat):
+        lstat.st_dev = None
+        lstat.st_nlink = None
+        lstat.st_ctime = None
+        return lstat
+
+    
     def __init__(self, pathname, stat, side_dict = None):
         print "Initializing BackupObject"
         print pathname
@@ -156,7 +142,58 @@ class BackupObject():
         new_file_name = os.path.dirname(old_name) + '/'+ new_name
         os.rename(old_name,new_file_name)
 
+class SourceObject(BackupObject):
 
+    @staticmethod
+    def _create_source_object(pathname, target, lstat, side_dict):
+        mode = lstat.st_mode
+        if S_ISDIR(mode):
+            return SourceDir(pathname, target, lstat, side_dict)
+        elif S_ISREG(mode):
+            return SourceFile(pathname, target, lstat, side_dict)
+        elif S_ISLNK(mode):
+            return SourceLnk(pathname, target, lstat, side_dict)
+        else:
+            # Unknown file 
+            return None
+
+    def __init__(self):
+        
+        pass
+
+class TargetObject(BackupObject):
+    def __init__(self):
+        pass
+
+class SourceFile(SourceObject):
+    def __init__(self):
+        pass
+
+    
+class SourceDir(SourceObject):
+    def __init__(self):
+        pass
+
+    
+class SourceLnk(SourceObject):
+    def __init__(self):
+        pass
+
+
+class TargetFile(TargetObject):
+    def __init__(self):
+        pass
+
+    
+class TargetDir(TargetObject):
+    def __init__(self):
+        pass
+
+    
+class TargetLnk(TargetObject):
+    def __init__(self):
+        pass    
+    
 class BackupFile(BackupObject):
     def __init__(self, pathname, target, stat, side_dict):
         print "Initializing BackupFile"
@@ -218,7 +255,7 @@ class BackupFile(BackupObject):
         for file_name in dir_dict.iterkeys():
             if file_name == name :
                 if self.compare_stat(self.side_dict , dir_dict[file_name]): # ak nasiel a su rovnake staty
-                    return dir_dict[file_name] .... file_copy update side_dict
+                    return dir_dict[file_name] #.... file_copy update side_dict
             else : False
                 
     
