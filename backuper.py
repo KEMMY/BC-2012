@@ -9,7 +9,7 @@ import constants
 # do buducna
 class Target():
     def __init__(pathname):
-    self.target_path = pathname
+	self.target_path = pathname
     def get_path():
 	return self.target_path # volania napr. BackupObject.new...(... , target.get_path())
 
@@ -242,7 +242,7 @@ class SourceFile(SourceObject):
 			# ak sa zmenili iba metadata tak ich dopln do slovnika ale nekopiruj subor
                         return self.make_side_dict(side_dict['hash'])
 	else: # vrat pozmeneni slovnik
-		return self.initial_backup()
+		return self.initial_backup
 			
 		
 class SourceDir(SourceObject):
@@ -281,14 +281,15 @@ class SourceDir(SourceObject):
 	hash = self.pickling(initial_dict)
 	return self.make_side_dict(hash)
 
-     def incremental_backup(self):						 
-	initial_dict = {}
+     def incremental_backup(self,side_dict):						
+        old_dict = side_dict # prva uroven
+        incremental_dict = {}
 	for F in os.listdir(self.source):
 		next_path = os.path.join(self.source,F)
-		new = BackupObject.make_backup_object(next_path)
-		side_dict = new.initial_backup()
-		initial_dict[F] = side_dict
-	print initial_dict
+		new = BackupObject.new_backup_object(next_path)
+		side_dict = new.incremental_backup(old_dict[F])
+		new_dict[F] = side_dict
+	print incremental_dict
 	hash = self.pickling(initial_dict)
 	return self.make_side_dict(hash)
 	
@@ -319,7 +320,7 @@ class SourceLnk(SourceObject):
 		# ak sa zmenili iba metadata tak ich dopln do slovnika ale nekopiruj subor
                 return self.make_side_dict(side_dict['hash'])
 	else: # vrat pozmeneni slovnik
-	return self.initial_backup()
+	return self.initial_backup
 
 class TargetFile(TargetObject):
 
