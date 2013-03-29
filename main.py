@@ -1,52 +1,36 @@
 from backuper import *
 
-def main():
-    b = BackupObject('/home/kmm/Plocha/source/new/')
-    print ("------ test stav. premenne ---------")
-    print b.mode
-    print b.name
-    print b.source
-    print b.source_dir
-    print b.target
-    print b.__class__
-    print (b.initial_backup())
-    E = BackupObject.make_backup_object('/home/kmm/Plocha/source/new/subor1')
-    print E.inc_backup()
-    '''#b.make_backup_object(b.source,b.target)
-    if S_ISDIR(b.mode):
-        print ("toto je adresar")
-    elif S_ISREG(b.mode):
-        print ("toto je subor")
-    else :
-        pass
-    print ("---------- test file_copy ---------")
-    print  b.file_copy()
-    print ("---------- test make_side_dict ----")
-    print (b.make_side_dict())
-    print ("---------- teste make_file_dict ----")
-    print (b.make_file_dict())
-    print ("---")
-    print ("---")
-    print ("---unpickling file ------")
-    print ("---")
-    print (b.unpickling('850daf0f033d49bbe2bf936d512445602cefbb2d'))
-    directory = BackupObject('/home/kmm/Plocha/source/new/directory1')
-    print ("------ test stav. premenne ---------")
-    print directory.mode
-    print directory.name
-    print directory.source
-    print directory.source_dir
-    print directory.target
-    print directory.__class__
-    b.make_backup_object(b.source,b.target)
-    if S_ISDIR(directory.mode):
-        print ("toto je adresar")
-    elif S_ISREG(directory.mode):
-        print ("toto je subor")
-    else :
-        pass
+def initial_backup():
+    print "class Target test"
+    target = Target('/home/kmm/Plocha/target/new_target')
+    print target.get_path()
+    print ""
+    print "//////////////////////TEST class Backup test NEWBACKUP/////////////////////////"
+    print ""
+    back = Backup._create_backup('/home/kmm/Plocha/source',target.get_path())
+    print back.time
+    print back.source
+    print back.target
+    print back.name
+    print ""
+    print "///////////////////////TEST class Backup LATESTBACKUP////////////////////////"
+    print ""
+    latest = Backup._create_backup('/home/kmm/Plocha/source',target.get_path(),'2013-03-29T18:57:12')
+    print latest.time
+    print latest.source
+    print latest.target
+    print latest.name
+    print "///////////////////TEST class NEWBACKUP initial_backup//////////////////////////"
+    os.mkdir (back.target + "/objects" )
+    os.mkdir (back.target + "/backups" )
+    back.initial_backup()
+
     
-'''
+    
+
+def main():
+    print "Hello"
+    initial_backup()
 
 if  __name__ == "__main__":
     main()
