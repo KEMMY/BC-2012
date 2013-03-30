@@ -25,12 +25,25 @@ def initial_backup():
     os.mkdir (back.target + "/backups" )
     back.initial_backup()
 
-    
-    
 
+def incremental_backup():
+    print "//////////////////////class Target test//////////////////////"
+    target = Target('/home/kmm/Plocha/target/new_target')
+    print target.get_path()
+    print ""
+    print "//////////////////////Start Incremental Backup/////////////////////////"
+    print ""
+    inc_back = Backup._create_backup('/home/kmm/Plocha/source',target.get_path(),'2013-03-30T23:02:42')
+    print inc_back.time
+    print inc_back.source
+    print inc_back.target
+    print inc_back.name
+    inc_back.incremental_backup()
+    
 def main():
     print "Hello"
-    initial_backup()
+    #initial_backup()
+    incremental_backup()
 
 if  __name__ == "__main__":
     main()
