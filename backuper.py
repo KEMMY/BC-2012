@@ -50,7 +50,7 @@ class Backup():
     def get_backup(self, time):
         file_name = self.target + "/backups/" + time
         with open(file_name, "rb") as BF:
-                BF.read(load_dict)
+                load_dict=BF.read()
                 BF.close()
         side_dict = pickle.loads(load_dict)
         return side_dict
@@ -78,7 +78,7 @@ class NewBackup(Backup):
         self.make_backup(self.get_time(),side_dict) # self.get_time alebo self.time ?
 
     def incremental_backup(self):
-        pass # todo
+        pass
 
 
 class LatestBackup(Backup):
@@ -91,7 +91,11 @@ class LatestBackup(Backup):
         pass #?
         
     def incremental_backup(self):
-        pass
+        side_dict = self.get_backup(self.name)
+        trg_object = TargetObject.create(self.source, self.target + "/objects" , side_dict)
+        src_object = SourceObject.create(self.source,self.target + "/objects", trg_object)
+        new_side_dict = src_object.incremental_backup()
+        self.make_backup(self.time, new_side_dict)
 
         
 class BackupObject():
@@ -159,13 +163,15 @@ class SourceObject(BackupObject):
         
     def exist_backup(self):
         file_hash = self.make_hash(self.source)
-        #for F in os.listdir(self.target):
-        #        if F == file_hash:
-        #            break
-        #            return True
-        #return False
-        # TODO
-        #return os.path.exists(...)
+        return os.path.exists(self.target + file_hash)
+    
+    def compare_stat(self, object_stat, backuped_stat):
+        return (object_stat.st_size == backuped_stat.st_size and #nezmenil velkost
+                object_stat.st_uid == backuped_stat.st_uid and # nezmenil uziv
+                object_stat.st_gid == backuped_stat.st_gid and # nezmenil skupinu
+                object_stat.st_mtime == backuped_stat.st_mtime and # posledna modifikacia
+                object_stat.st_mode == backuped_stat.st_mode and
+                object_stat.st_ctime == backuped_stat.st_ctime) # last metadata change time 
 
 class TargetObject(BackupObject):
         
@@ -184,12 +190,14 @@ class TargetObject(BackupObject):
             return None
 
     def __init__(self, source, target, lstat, side_dict):
-        print "Initializing SourceFile"
+        print "Initializing TargetObject"
         print source
         BackupObject.__init__(self, source, target, lstat)
         self.side_dict = side_dict
+        print self.side_dict
                 
 class SourceFile(SourceObject):
+    
     def __init__(self, source, target, lstat, target_object):
         print "Initializing SourceFile"
         print source
@@ -224,23 +232,27 @@ class SourceFile(SourceObject):
     def initial_backup(self):
         hash = self.file_copy()
         return self.make_side_dict(hash)
-
-    def compare_stat(self, object_stat, backuped_stat):
-        return object_stat == backuped_stat 
     
     def incremental_backup(self):
         # ak sa zmenil mtime, tak ma zmysel pozerat sa na obsah suboru
         # inak sa mozno zmenili zaujimave metadata
-        if self.exist_backup():
-        # zmena iba metadat
-                if self.lstat == target_object.side_dict['stat']:     
-                        return side_dict
-                else:                   
-                        # ak sa zmenili iba metadata tak ich dopln do slovnika ale nekopiruj subor
-                        return self.make_side_dict(side_dict['hash'])
-        else: # vrat pozmeneni slovnik
-                return self.initial_backup
-                        
+        if self.target_object != None:      
+            if not self.exist_backup(): # ak ma target_object uz existuje v zalohe
+                return self.initial_backup()
+            else:
+                if not self.compare_stat(self.lstat, self.target_object.lstat): # ak sa nerovnaju lstaty
+                    if self.lstat.st_mtime == self.target_object.lstat.st_mtime:
+                        # rovanky mtime
+                        return self.target_object.side_dict
+                    else:
+                        # rozny mtime
+                        new_hash = make_hash(self.source) # spocitaj hash a porovnaj
+                        # uz skontroloval exist asi zbytocna vetva
+                        if new_hash == self.target_object.side_dict[self.name]['hash']:
+                            return self.target_object.side_dict
+                        else: self.initial_backup()
+                else: return self.target_object.side_dict # ak sa rovnaju staty
+                    
                 
 class SourceDir(SourceObject):
         
@@ -248,6 +260,8 @@ class SourceDir(SourceObject):
         print "Initializing SourceDir"
         print source
         SourceObject.__init__(self, source, target, lstat, target_object)
+        if self.target_object != None: print self.target_object.side_dict
+
     def pickling(self, input_dict):
         hash_name = hashlib.sha1()
         pi = pickle.dumps(input_dict)
@@ -278,17 +292,20 @@ class SourceDir(SourceObject):
         hash = self.pickling(initial_dict)
         return self.make_side_dict(hash)
 
-    def incremental_backup(self,side_dict):                                             
-        old_dict = side_dict # prva uroven
+    def incremental_backup(self):
         incremental_dict = {}
         for F in os.listdir(self.source):
                 next_path = os.path.join(self.source,F)
-                oldF = target_object.get_object(F)
-                new = SourceObject.create(next_path,self.target,oldF)
-                side_dict = new.incremental_backup(old_dict[F])
-                incremental_dict[F] = side_dict
+                if self.target_object != None:
+                    oldF = self.target_object.get_object(F)
+                    new = SourceObject.create(next_path,self.target,oldF)
+                    side_dict = new.incremental_backup()
+                    incremental_dict[F] = side_dict
+                else:
+                    side_dict = self.initial_backup()
+                    incremental_dict[F] = side_dict
         print incremental_dict
-        hash = self.pickling(initial_dict)
+        hash = self.pickling(incremental_dict)
         return self.make_side_dict(hash)
         
 class SourceLnk(SourceObject):
@@ -309,43 +326,57 @@ class SourceLnk(SourceObject):
     def initial_backup(self):
                 return self.make_side_dict(self.make_lnk())
 
-    def incremental_backup(self,side_dict):
-        if self.exist():
-        # zmena iba metadat
-           if self.stat == side_dict['stat']:     
-                return side_dict
-           else:                        
-                # ak sa zmenili iba metadata tak ich dopln do slovnika ale nekopiruj subor
-                return self.make_side_dict(side_dict['hash'])
-        else: # vrat pozmeneni slovnik
-            return self.initial_backup
+    def incremental_backup(self):
+        if self.target_object != None:
+            
+            if not self.exist_backup(): # ak uz existuje v zalohe
+                return self.initial_backup()
+            else:
+                if not self.compare_stat(self.lstat, self.lstat): # ak sa nerovnaju lstaty
+                    if self.lstat.st_mtime == self.target_object.lstat.st_mtime:
+                        # rovanky mtime
+                        return self.target_object.side_dict
+                    else:
+                        # rozny mtime
+                        new_hash = make_hash(self.source) # spocitaj hash a porovnaj
+                        # uz skontroloval exist asi zbytocna vetva
+                        if new_hash == self.target_object.side_dict[self.name]['hash']:
+                            return self.target_object.side_dict
+                        else: self.initial_backup()
+                else: return self.target_object.side_dict # ak sa rovnaju staty
 
 class TargetFile(TargetObject):
-
-        def __init__(self, source, target, lstat, side_dict):
-                print "Initializing TargetFile"
-                print source
-                TargetObject.__init__(self, source, target, lstat, side_dict)
+    
+    def __init__(self, source, target, lstat, side_dict):
+        print "Initializing TargetFile"
+        print source
+        TargetObject.__init__(self, source, target, lstat, side_dict)
 
         
 class TargetDir(TargetObject):
-        def __init__(self, source, target, lstat, side_dict):
-                print "Initializing TargetDir"
-                print source
-                TargetObject.__init__(self, source, target, lstat, side_dict)
+    
+    def __init__(self, source, target, lstat, side_dict):
+        print "Initializing TargetDir"
+        print source
+        TargetObject.__init__(self, source, target, lstat, side_dict)
+        #print self.side_dict
                 
-        def get_object(self, name):
-                # zisti, ci objekt "name" existuje v zalohovanej verzii
-                # tohto adresara
-                # ak ano, vyrobi prislusny TargetObject
-                # ak nie, vrati None
-                pass
-
+    def get_object(self, name):
+        # zisti, ci objekt "name" existuje v zalohovanej verzii
+        # tohto adresara
+        # ak ano, vyrobi prislusny TargetObject
+        # ak nie, vrati None
+        if name in self.side_dict:
+            new_target = TargetObject.create(self.source, self.target, side_dict[name])
+            return new_target_object 
+        else: return None
+        
 class TargetLnk(TargetObject):
-        def __init__(self, source, target, lstat, side_dict):
-                print "Initializing TargetLnk"
-                print source
-                TargetObject.__init__(self, source, target, lstat, side_dict)
+    
+    def __init__(self, source, target, lstat, side_dict):
+        print "Initializing TargetLnk"
+        print source
+        TargetObject.__init__(self, source, target, lstat, side_dict)
 
                                                          
         
