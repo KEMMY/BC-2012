@@ -20,7 +20,7 @@ class BackupObject():
             return None
 
     def __init__(self, pathname):
-    print "Initializing BackupObject"
+	print "Initializing BackupObject"
         self.source = pathname
         self.stat = os.stat(pathname)
         self.source_dir = os.path.dirname(pathname)
