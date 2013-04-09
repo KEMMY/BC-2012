@@ -425,6 +425,8 @@ class TargetDir(TargetObject):
         # ak dir tak rekurzia
         #inak .recovery_backup
         #passdef recovery_backup(self):
+        #for name ,  in self.side_dict.iteritems():
+        # if IS_REG(self.side_dict[key]['lstat'].st_mode):    
         pass
     
 class TargetLnk(TargetObject):
