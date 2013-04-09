@@ -10,16 +10,18 @@ import constants
 class Target():
     def __init__(self, pathname):
         self.target_path = pathname
+
     def get_path(self):
         return self.target_path #volania napr. BackupObject.new...(... , target.get_path())
-
+    
     def get_objects_path(self):
         return self.target_path + "objects/" 
+
     def get_backup_path(self):
         return self.target_path + "backups/"
     
 class Backup():
-                
+               
     def __init__(self, source, target, backup_name = None):
         self.time = self.get_time() # zbytocne ?!
         self.source = source
@@ -45,17 +47,27 @@ class Backup():
         side_dict = pickle.loads(load_dict)
         return side_dict
 
+    def get_latest_time(self,backups_dir): # backups adresar
+        max_time = '0000-00-00T00:00:00'
+        for backup in os.listdir(backups_dir):
+            if ( backup > max_time):
+                max_time = backup
+        return max_time
+
     def initial_backup(self):
-        # New
+        # New Backup
         pass
         
     def incremental_backup(self):
-        # New / Latest Backup
+        # New / Existing Backup
+        pass
+
+    def recovery_backup(self):
         pass
         
 
 class NewBackup(Backup): 
-        
+    #back = NewBackup('/home/kmm/Plocha/source',target.get_path()) + None     
     def __init__(self, source, target, backup_name = None):
         print "Initializing NewBackup"
         Backup.__init__(self, source, target, backup_name)
@@ -67,7 +79,12 @@ class NewBackup(Backup):
         self.make_backup(self.get_time(),side_dict) # self.get_time alebo self.time ?
 
     def incremental_backup(self):
-        pass
+        max_time = self.get_latest_time(self.target+"/backups")
+        side_dict = self.get_backup(max_time)
+        trg_object = TargetObject.create(self.source, self.target + "/objects", side_dict)
+        src_object = SourceObject.create(self.source,self.target + "/objects", trg_object)
+        new_side_dict = src_object.incremental_backup()
+        self.make_backup(self.get_time(), new_side_dict)
 
 
 class ExistingBackup(Backup):
@@ -78,14 +95,19 @@ class ExistingBackup(Backup):
         Backup.__init__(self, source, target, backup_name)
 
     def initial_backup(self):
-        pass #?
+        pass 
         
     def incremental_backup(self):
+        pass
+    
+    #Recovery = ExistingBackup('/home/kmm/Plocha/source',target.get_path(),'2013-03-29T18:57:12')
+    #ktoru zalohu chceme obnovit sa bude rieit na urvovni scriptu nie samtotneho backupera
+    # self.name obsahuje teraz 2013-29.... zaloha ktoru chcem obnovit
+    # self.source - urcuje miesto kam chcem zalohu obnovit
+    def recovery_backup(self):
         side_dict = self.get_backup(self.name)
-        trg_object = TargetObject.create(self.source, self.target + "/objects" , side_dict)
-        src_object = SourceObject.create(self.source,self.target + "/objects", trg_object)
-        new_side_dict = src_object.incremental_backup()
-        self.make_backup(self.time, new_side_dict)
+        recovery_obj = TargetObject.create(self.source, self.target + "/objects", side_dict)
+        recovery_obj.recovery_backup()
 
         
 class BackupObject():
@@ -99,7 +121,6 @@ class BackupObject():
         lstat.st_atime = None
         return lstat
 
-        
     def __init__(self, source, target, lstat):
         print "Initializing BackupObject"
         self.source = source
@@ -114,6 +135,11 @@ class BackupObject():
 
     def initial_backup(self):
         #first Backup
+        pass
+    def incremental_backup(self):
+        pass
+
+    def recovery_backup(self):
         pass
 
     def file_rename(self, old_name, new_name):
@@ -347,6 +373,26 @@ class TargetFile(TargetObject):
         print source
         TargetObject.__init__(self, source, target, lstat, side_dict)
 
+    def recovery_backup(self):
+        # reverse file_copy()
+        file_name = self.side_dict['name']
+        with open(self.target, "rb") as TF:
+            recovery_file = self.source  + "/" + file_name
+            with open(recovery_file, "wb") as RF:
+                while True:
+                    block = TF.read(block_size)
+                    RF.write(block)
+                    if not block:
+                        break
+            RF.close()
+        TF.close()
+        return file_name
+
+    def recovery_backup(self):
+        #prejst slovnik
+        # ak dir tak rekurzia
+        #inak .recovery_backup
+        pass
         
 class TargetDir(TargetObject):
     
@@ -378,6 +424,9 @@ class TargetDir(TargetObject):
                 UDF.close()
         return_dict = pickle.loads(pi)
         return return_dict
+
+    def recovery_backup(self):
+        pass
     
 class TargetLnk(TargetObject):
     
@@ -385,6 +434,13 @@ class TargetLnk(TargetObject):
         print "Initializing TargetLnk"
         print source
         TargetObject.__init__(self, source, target, lstat, side_dict)
+
+    def recovery_backup(self):
+        link_target = os.readlink(self.target)
+        file_name = self.target  + self.side_dict['name']
+        with open(file_name,"wb") as DF:
+                DF.write(link_target)
+        return self.file_name
 
                                                          
         
