@@ -388,11 +388,6 @@ class TargetFile(TargetObject):
         TF.close()
         return file_name
 
-    def recovery_backup(self):
-        #prejst slovnik
-        # ak dir tak rekurzia
-        #inak .recovery_backup
-        pass
         
 class TargetDir(TargetObject):
     
@@ -426,6 +421,10 @@ class TargetDir(TargetObject):
         return return_dict
 
     def recovery_backup(self):
+        #prejst slovnik
+        # ak dir tak rekurzia
+        #inak .recovery_backup
+        #passdef recovery_backup(self):
         pass
     
 class TargetLnk(TargetObject):
