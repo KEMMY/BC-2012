@@ -7,22 +7,20 @@ def initial_backup():
     print ""
     print "//////////////////////TEST class Backup test NEWBACKUP/////////////////////////"
     print ""
-    back = Backup._create_backup('/home/kmm/Plocha/source',target.get_path())
-    print back.time
-    print back.source
-    print back.target
+    back = NewBackup('/home/kmm/Plocha/source',target.get_path())
+    print back.source_path
+    print back.target_path
     print back.name
     print ""
     print "///////////////////////TEST class Backup LATESTBACKUP////////////////////////"
     print ""
-    latest = Backup._create_backup('/home/kmm/Plocha/source',target.get_path(),'2013-03-29T18:57:12')
-    print latest.time
-    print latest.source
-    print latest.target
+    latest = ExistingBackup('/home/kmm/Plocha/source',target.get_path(),'2013-03-29T18:57:12')
+    print latest.source_path
+    print latest.target_path
     print latest.name
     print "///////////////////TEST class NEWBACKUP initial_backup//////////////////////////"
-    os.mkdir (back.target + "/objects" )
-    os.mkdir (back.target + "/backups" )
+    os.mkdir (back.target_path + "/objects" )
+    os.mkdir (back.target_path + "/backups" )
     back.initial_backup()
 
 
@@ -33,17 +31,30 @@ def incremental_backup():
     print ""
     print "//////////////////////Start Incremental Backup/////////////////////////"
     print ""
-    inc_back = Backup._create_backup('/home/kmm/Plocha/source',target.get_path(),'2013-03-30T23:02:42')
-    print inc_back.time
-    print inc_back.source
-    print inc_back.target
+    inc_back = ExistingBackup('/home/kmm/Plocha/source',target.get_path(),'2013-04-11T23:56:07')
+    print inc_back.source_path
+    print inc_back.target_path
     print inc_back.name
     inc_back.incremental_backup()
+
+def recovery_backup():
+    print "//////////////////////class Target test//////////////////////"
+    target = Target('/home/kmm/Plocha/target/new_target')
+    print target.get_path()
+    print ""
+    print "//////////////////////Start Recovery Backup/////////////////////////"
+    print ""
+    rec_back = ExistingBackup('/home/kmm/Plocha/source',target.get_path(),'2013-04-11T23:56:07')
+    print rec_back.source_path
+    print rec_back.target_path
+    print rec_back.name
+    rec_back.recovery_backup()
     
 def main():
     print "Hello"
-    #initial_backup()
-    incremental_backup()
+    initial_backup()
+    #incremental_backup()
+    #recovery_backup()
 
 if  __name__ == "__main__":
     main()
