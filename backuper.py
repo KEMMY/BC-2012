@@ -22,10 +22,10 @@ class Target():
     
 class Backup():
                
-    def __init__(self, source, target, backup_name = None):
-        self.time = self.get_time() # zbytocne ?!
-        self.source = source
-        self.target = target
+    def __init__(self, source_path, target_path, backup_name = None):
+        #self.time = self.get_time() # zbytocne ?!
+        self.source_path = source_path
+        self.target_path = target_path
         self.name = backup_name # napr. 2012-12-12T12:12 / v tedy sa pouzije namiesot self.time
                 
                 
@@ -34,13 +34,13 @@ class Backup():
 
     def make_backup(self, time, side_dict):
         pickled_dict = pickle.dumps(side_dict)
-        file_name = self.target + "/backups/" + time
+        file_name = self.target_path + "/backups/" + time
         with open(file_name,"wb") as BF:
             BF.write(pickled_dict)
             BF.close()
                         
     def get_backup(self, time):
-        file_name = self.target + "/backups/" + time
+        file_name = self.target_path + "/backups/" + time
         with open(file_name, "rb") as BF:
                 load_dict=BF.read()
                 BF.close()
@@ -68,37 +68,37 @@ class Backup():
 
 class NewBackup(Backup): 
     #back = NewBackup('/home/kmm/Plocha/source',target.get_path()) + None     
-    def __init__(self, source, target, backup_name = None):
+    def __init__(self, source_path, target_path, backup_name = None):
         print "Initializing NewBackup"
-        Backup.__init__(self, source, target, backup_name)
+        Backup.__init__(self, source_path, target_path, backup_name)
 
     def initial_backup(self):
         # vytvori novu zalohu
-        new_object = SourceObject.create(self.source, self.target + "/objects/", None) 
+        new_object = SourceObject.create(self.source_path, self.target_path + "/objects/", None) 
         side_dict = new_object.initial_backup()
         self.make_backup(self.get_time(),side_dict) # self.get_time alebo self.time ?
 
     def incremental_backup(self):
-        max_time = self.get_latest_time(self.target+"/backups")
-        side_dict = self.get_backup(max_time)
-        trg_object = TargetObject.create(self.source, self.target + "/objects", side_dict)
-        src_object = SourceObject.create(self.source,self.target + "/objects", trg_object)
-        new_side_dict = src_object.incremental_backup()
-        self.make_backup(self.get_time(), new_side_dict)
+        pass
 
 
 class ExistingBackup(Backup):
     #nacitanie existujucich zaloh
     
-    def __init__(self, source, target, backup_name):
+    def __init__(self, source_path, target_path, backup_name):
         print "Initializing LatestBackup"
-        Backup.__init__(self, source, target, backup_name)
+        Backup.__init__(self, source_path, target_path, backup_name)
 
     def initial_backup(self):
         pass 
         
     def incremental_backup(self):
-        pass
+        max_time = self.get_latest_time(self.target_path+"/backups")
+        side_dict = self.get_backup(max_time)
+        trg_object = TargetObject.create(self.source_path, self.target_path + "/backups", side_dict, self.name)
+        src_object = SourceObject.create(self.source_path,self.target_path + "/objects", trg_object)
+        new_side_dict = src_object.incremental_backup()
+        self.make_backup(self.get_time(), new_side_dict)
     
     #Recovery = ExistingBackup('/home/kmm/Plocha/source',target.get_path(),'2013-03-29T18:57:12')
     #ktoru zalohu chceme obnovit sa bude rieit na urvovni scriptu nie samtotneho backupera
@@ -106,7 +106,8 @@ class ExistingBackup(Backup):
     # self.source - urcuje miesto kam chcem zalohu obnovit
     def recovery_backup(self):
         side_dict = self.get_backup(self.name)
-        recovery_obj = TargetObject.create(self.source, self.target + "/objects", side_dict)
+        print side_dict
+        recovery_obj = TargetObject.create(self.source_path, self.target_path + "/backups", side_dict, self.name)
         recovery_obj.recovery_backup()
 
         
@@ -121,13 +122,13 @@ class BackupObject():
         lstat.st_atime = None
         return lstat
 
-    def __init__(self, source, target, lstat):
+    def __init__(self, source_path, target_path, lstat):
         print "Initializing BackupObject"
-        self.source = source
-        self.target = target
+        self.source_path = source_path
+        self.target_path = target_path
         self.lstat = lstat # self.make_lstat(lstat) ... negunguje vid hore
-        self.source_dir = os.path.dirname(source)
-        self.name = os.path.basename(source)
+        self.source_dir = os.path.dirname(source_path)
+        self.name = os.path.basename(source_path)
 
     def make_side_dict(self, hash):
         return { 'lstat': self.lstat,
@@ -143,29 +144,29 @@ class BackupObject():
         pass
 
     def file_rename(self, old_name, new_name):
-        new_file_name = os.path.dirname(old_name) + '/'+ new_name
+        new_file_name = os.path.join(os.path.dirname(old_name), new_name)
         os.rename(old_name,new_file_name)
                 
 class SourceObject(BackupObject):
     
     @staticmethod
-    def create(source, target, target_object):
-        lstat = os.lstat(source)
+    def create(source_path, target_path, target_object):
+        lstat = os.lstat(source_path)
         mode = lstat.st_mode
         if S_ISDIR(mode):
-                return SourceDir(source, target, lstat, target_object)
+                return SourceDir(source_path, target_path, lstat, target_object)
         elif S_ISREG(mode):
-                return SourceFile(source, target, lstat, target_object)
+                return SourceFile(source_path, target_path, lstat, target_object)
         elif S_ISLNK(mode):
-                return SourceLnk(source, target, lstat, target_object)
+                return SourceLnk(source_path, target_path, lstat, target_object)
         else:
                 # Unknown file
                 return None
 
-    def __init__(self, source, target, lstat, target_object):
+    def __init__(self, source_path, target_path, lstat, target_object):
         print "Initializing SourceFile"
-        print source
-        BackupObject.__init__(self, source, target, lstat)
+        print source_path
+        BackupObject.__init__(self, source_path, target_path, lstat)
         self.target_object = target_object
 
     def make_hash(self, src_file, block_size = constants.CONST_BLOCK_SIZE):             
@@ -192,39 +193,41 @@ class SourceObject(BackupObject):
 class TargetObject(BackupObject):
         
     @staticmethod
-    def create(source, target, side_dict):
+    def create(source_path, target_path, side_dict, name):
         lstat = side_dict['lstat']
         mode = lstat.st_mode
         if S_ISDIR(mode):      
-            return TargetDir(source, target, lstat, side_dict)
+            return TargetDir(source_path, target_path, lstat, side_dict, name)
         elif S_ISREG(mode):
-            return TargetFile(source, target, lstat, side_dict)
+            return TargetFile(source_path, target_path, lstat, side_dict, name)
         elif S_ISLNK(mode):
-            return TargetLnk(source, target, lstat, side_dict)
+            return TargetLnk(source_path, target_path, lstat, side_dict, name)
         else:
             # Unknown file
             return None
 
-    def __init__(self, source, target, lstat, side_dict ):
+    def __init__(self, source_path, target_path, lstat, side_dict, name ):
         print "Initializing TargetObject"
-        print source
-        BackupObject.__init__(self, source, target, lstat)
+        print source_path
+        BackupObject.__init__(self, source_path, target_path, lstat)
         self.side_dict = side_dict
         print self.side_dict
+        self.name = name # ???? self.name uz existuje v backupObject ako source_path basename
+        print self.name
         
                 
 class SourceFile(SourceObject):
     
-    def __init__(self, source, target, lstat, target_object):
+    def __init__(self, source_path, target_path, lstat, target_object):
         print "Initializing SourceFile"
-        print source
-        SourceObject.__init__(self, source, target, lstat, target_object)
+        print source_path
+        SourceObject.__init__(self, source_path, target_path, lstat, target_object)
                 
     def file_copy(self, block_size = constants.CONST_BLOCK_SIZE):
         file_hash = hashlib.sha1()
-        with open(self.source, "rb") as SF:
+        with open(self.source_path, "rb") as SF:
             
-            target_file = self.target  + self.name
+            target_file = self.target_path  + self.name
             with open(target_file, "wb") as TF:
                 while True:
                     block = SF.read(block_size)
@@ -254,47 +257,48 @@ class SourceFile(SourceObject):
         # ak sa zmenil mtime, tak ma zmysel pozerat sa na obsah suboru
         # inak sa mozno zmenili zaujimave metadata
         if self.target_object != None:      
-            if not self.exist_backup(): # ak ma target_object uz existuje v zalohe
-                return self.initial_backup()
-            else:
-                if not self.compare_stat(self.lstat, self.target_object.lstat): # ak sa nerovnaju lstaty
-                    if self.lstat.st_mtime == self.target_object.lstat.st_mtime:
-                        # rovanky mtime
-                        # vyrob side dict stary hash + aktualny lstat
-                        return self.make_dict(self.target_object.side_dict[self.name]['hash']) #stary hash
+            if not self.compare_stat(self.lstat, self.target_object.lstat): # ak sa nerovnaju lstaty
+                if (self.lstat.st_mtime == self.target_object.lstat.st_mtime
+                    and self.lstat.st_size == self.target_object.lstat.st_size):
+                    # rovanky mtime
+                    # vyrob side dict stary hash + aktualny lstat
+                    return self.make_dict(self.target_object.side_dict[self.name]['hash']) #stary hash
+                else:
+                    # rozny mtime
+                    new_hash = make_hash(self.source_path) # spocitaj hash a porovnaj
+                    if (new_hash == self.target_object.side_dict[self.name]['hash'] or os.path.exists(os.path.join(self.target,new_hash))):
+                        return self.make_dict(new_hash)
                     else:
-                        # rozny mtime
-                        new_hash = make_hash(self.source) # spocitaj hash a porovnaj
-                        # uz skontroloval exist asi zbytocna vetva
-                        if new_hash == self.target_object.side_dict[self.name]['hash']:
-                            return self.target_object.side_dict
-                        else: return self.initial_backup()
-                else: return self.target_object.side_dict # ak sa rovnaju staty
+                        return self.initial_backup()
+            else: return self.target_object.side_dict # ak sa rovnaju staty
+        else:
+            return self.initial_backup()
                     
                 
 class SourceDir(SourceObject):
         
-    def __init__(self, source, target, lstat, target_object):
+    def __init__(self, source_path, target_path, lstat, target_object):
         print "Initializing SourceDir"
-        print source
-        SourceObject.__init__(self, source, target, lstat, target_object)
+        print source_path
+        SourceObject.__init__(self, source_path, target_path, lstat, target_object)
         if self.target_object != None: print self.target_object.side_dict
 
     def pickling(self, input_dict):
         hash_name = hashlib.sha1()
         pi = pickle.dumps(input_dict)
         hash_name.update(pi)
-        tmp = self.target + "/" + hash_name.hexdigest()
-        with open(tmp,"wb") as DF:
-                DF.write(pi)
-                DF.close()
+        if self.target_object != None and not os.path.exists(os.path.join(self.target, hash_name.hexdigest())): #and ...hashe sa nerovnaju...:
+            tmp = os.path.join(self.target_path, hash_name.hexdigest())
+            with open(tmp,"wb") as DF:
+                    DF.write(pi)
+                    DF.close()
         return hash_name.hexdigest()
         
     def initial_backup(self):
         initial_dict = {}
-        for F in os.listdir(self.source):
-                next_path = os.path.join(self.source,F)
-                new_object = SourceObject.create(next_path, self.target, None) 
+        for F in os.listdir(self.source_path):
+                next_path = os.path.join(self.source_path,F)
+                new_object = SourceObject.create(next_path, self.target_path, None) 
                 side_dict = new_object.initial_backup()
                 initial_dict[F] = side_dict
         print initial_dict
@@ -310,33 +314,35 @@ class SourceDir(SourceObject):
         #bude potom v pripade neexistujuceho target_object fungovat rovnako
         #ako initial_backup() a teda nemusite mat dve metody
         #(ale podobne treba spravit aj incremental_backup() v SourceFile a SourceLnk).
-        incremental_dict = {}
-        for F in os.listdir(self.source):
-                next_path = os.path.join(self.source,F)
-                if self.target_object != None:
-                    oldF = self.target_object.get_object(F)
-                    new = SourceObject.create(next_path,self.target,oldF)
-                    side_dict = new.incremental_backup()
-                    incremental_dict[F] = side_dict
+        if self.target_object != None:      
+            if not self.compare_stat(self.lstat, self.target_object.lstat): # ak sa nerovnaju lstaty
+                if (self.lstat.st_mtime == self.target_object.lstat.st_mtime
+                    and self.lstat.st_size == self.target_object.lstat.st_size):
+                    # rovanky mtime
+                    # vyrob side dict stary hash + aktualny lstat
+                    return self.make_dict(self.target_object.side_dict[self.name]['hash']) #stary hash
                 else:
-                    new_object = SourceObject.create(next_path, self.target, None)
-                    side_dict = new_object.initial_backup()
-                    incremental_dict[F] = side_dict
-        print incremental_dict
-        hash = self.pickling(incremental_dict)
-        return self.make_side_dict(hash)
+                    # rozny mtime
+                    new_hash = make_hash(self.source_path) # spocitaj hash a porovnaj
+                    if (new_hash == self.target_object.side_dict[self.name]['hash'] or os.path.exists(os.path.join(self.target_path,new_hash))):
+                        return self.make_dict(new_hash)
+                    else:
+                        return self.initial_backup()
+            else: return self.target_object.side_dict # ak sa rovnaju staty
+        else:
+            return self.initial_backup()
         
 class SourceLnk(SourceObject):
         
-    def __init__(self, source, target, lstat, target_object):
+    def __init__(self, source_path, target_path, lstat, target_object):
         print "Initializing SourceLnk"
-        print source
-        SourceObject.__init__(self, source, target, lstat, target_object)
+        print source_path
+        SourceObject.__init__(self, source_path, target_path, lstat, target_object)
 
     def make_lnk(self):
-        link_target = os.readlink(self.source)
+        link_target = os.readlink(self.source_path)
         hash_name = self.make_hash(link_target)
-        file_name = self.target  + hash_name
+        file_name = os.path.join(self.target_path, hash_name)
         with open(file_name,"wb") as DF:
                 DF.write(link_target)
         return hash_name
@@ -345,39 +351,36 @@ class SourceLnk(SourceObject):
                 return self.make_side_dict(self.make_lnk())
 
     def incremental_backup(self):
-        if self.target_object != None:
-            
-            if not self.exist_backup(): # ak uz existuje v zalohe
-                return self.initial_backup()
-            else:
-                if not self.compare_stat(self.lstat, self.lstat): # ak sa nerovnaju lstaty
-                    if self.lstat.st_mtime == self.target_object.lstat.st_mtime:
-                        # rovanky mtime
-                        return self.target_object.side_dict
+        if self.target_object != None:      
+            if not self.compare_stat(self.lstat, self.target_object.lstat): # ak sa nerovnaju lstaty
+                if (self.lstat.st_mtime == self.target_object.lstat.st_mtime
+                    and self.lstat.st_size == self.target_object.lstat.st_size):
+                    # rovanky mtime
+                    # vyrob side dict stary hash + aktualny lstat
+                    return self.make_dict(self.target_object.side_dict[self.name]['hash']) #stary hash
+                else:
+                    # rozny mtime
+                    new_hash = make_hash(self.source_path) # spocitaj hash a porovnaj
+                    if (new_hash == self.target_object.side_dict[self.name]['hash'] or os.path.exists(os.path.join(self.target_path,new_hash))):
+                        return self.make_dict(new_hash)
                     else:
-                        # rozny mtime
-                        new_hash = make_hash(self.source) # spocitaj hash a porovnaj
-                        # uz skontroloval exist asi zbytocna vetva
-                        if new_hash == self.target_object.side_dict[self.name]['hash']:
-                            return self.target_object.side_dict
-                        else:
-                            new_object = SourceObject.create(next_path, self.target, None)
-                            side_dict = new_object.initial_backup()
-                            incremental_dict[F] = side_dict
-                else: return self.target_object.side_dict # ak sa rovnaju staty
+                        return self.initial_backup()
+            else: return self.target_object.side_dict # ak sa rovnaju staty
+        else:
+            return self.initial_backup()
 
 class TargetFile(TargetObject):
     
-    def __init__(self, source, target, lstat, side_dict):
+    def __init__(self, source_path, target_path, lstat, side_dict, name):
         print "Initializing TargetFile"
-        print source
-        TargetObject.__init__(self, source, target, lstat, side_dict)
+        print source_path
+        TargetObject.__init__(self, source_path, target_path, lstat, side_dict, name)
 
-    def recovery_backup(self):
+    def recovery_backup(self,name):
         # reverse file_copy()
-        file_name = self.side_dict['name']
-        with open(self.target, "rb") as TF:
-            recovery_file = self.source  + "/" + file_name
+        file_name = os.path.join(self.target_path,self.side_dict['hash'])
+        with open(file_name, "rb") as TF:
+            recovery_file = os.path.join(self.source_path, name)
             with open(recovery_file, "wb") as RF:
                 while True:
                     block = TF.read(block_size)
@@ -386,7 +389,6 @@ class TargetFile(TargetObject):
                         break
             RF.close()
         TF.close()
-        return file_name
 
         
 class TargetDir(TargetObject):
@@ -394,12 +396,11 @@ class TargetDir(TargetObject):
     #Pomocou tejto metody treba nacitat slovnik objektov v adresari
     #do vhodnej instancnej premennej objektu triedy TargetDir napriklad v konstruktore.
     #Do tohto slovnika (nie do side_dict!) potom pristupuje metoda get_object().
-    def __init__(self, source, target, lstat , name):
+    def __init__(self, source_path, target_path, lstat , side_dict, name):
         print "Initializing TargetDir"
-        print source
-        self.name = os.path.basename(target)
-        self.load_dict = self.unpickling(self.name,target)
-        TargetObject.__init__(self, source, target, lstat, load_dict)
+        print source_path
+        self.loaded_dict = self.unpickling(name,target_path)
+        TargetObject.__init__(self, source_path, target_path, lstat, self.loaded_dict, name)
         #print self.side_dict
                 
     def get_object(self, name):
@@ -407,17 +408,18 @@ class TargetDir(TargetObject):
         # tohto adresara
         # ak ano, vyrobi prislusny TargetObject
         # ak nie, vrati None
-        if name in self.load_dict:
-            new_target_object = TargetObject.create(self.source, self.target, load_dict[name])
+        if name in self.loaded_dict:
+            new_target_object = TargetObject.create(self.source_path, self.target_path, loaded_dict[name],name)
             return new_target_object 
         else: return None
 
-    def unpickling(self,file_name,target):
-        unpkl_file = target + "/" + file_name
+    def unpickling(self,file_name,target_path):
+        unpkl_file = os.path.join(target_path, file_name)
         with open(unpkl_file, "rb") as UPF:
-                UDF.read(pi)
-                UDF.close()
+                pi = UPF.read()
+                UPF.close()
         return_dict = pickle.loads(pi)
+        print return_dict
         return return_dict
 
     def recovery_backup(self):
@@ -431,13 +433,14 @@ class TargetDir(TargetObject):
     
 class TargetLnk(TargetObject):
     
-    def __init__(self, source, target, lstat, side_dict):
+    def __init__(self, source_path, target_path, lstat, side_dict, name):
         print "Initializing TargetLnk"
-        print source
-        TargetObject.__init__(self, source, target, lstat, side_dict)
+        print source_path
+        TargetObject.__init__(self, source_path, target_path, lstat, side_dict, name)
+
 
     def recovery_backup(self):
-        link_target = os.readlink(self.target)
+        link_target = os.readlink(self.target_path)
         file_name = self.target  + self.side_dict['name']
         with open(file_name,"wb") as DF:
                 DF.write(link_target)
