@@ -86,7 +86,7 @@ class ExistingBackup(Backup):
     #nacitanie existujucich zaloh
     
     def __init__(self, source_path, target_path, backup_name):
-        print "Initializing LatestBackup"
+        print "Initializing ExistingBackup"
         Backup.__init__(self, source_path, target_path, backup_name)
 
     def initial_backup(self):
@@ -95,8 +95,9 @@ class ExistingBackup(Backup):
     def incremental_backup(self):
         max_time = self.get_latest_time(self.target_path+"/backups")
         side_dict = self.get_backup(max_time)
-        trg_object = TargetObject.create(self.source_path, self.target_path + "/backups", side_dict, self.name)
-        src_object = SourceObject.create(self.source_path,self.target_path + "/objects", trg_object)
+        print side_dict
+        trg_object = TargetObject.create(self.source_path, self.target_path + "/objects/", side_dict)
+        src_object = SourceObject.create(self.source_path,self.target_path + "/objects/", trg_object)
         new_side_dict = src_object.incremental_backup()
         self.make_backup(self.get_time(), new_side_dict)
     
@@ -104,11 +105,13 @@ class ExistingBackup(Backup):
     #ktoru zalohu chceme obnovit sa bude rieit na urvovni scriptu nie samtotneho backupera
     # self.name obsahuje teraz 2013-29.... zaloha ktoru chcem obnovit
     # self.source - urcuje miesto kam chcem zalohu obnovit
+    
     def recovery_backup(self):
-        side_dict = self.get_backup(self.name)
+        max_time = self.get_latest_time(self.target_path+"/backups")
+        side_dict = self.get_backup(max_time)
         print side_dict
-        recovery_obj = TargetObject.create(self.source_path, self.target_path + "/backups", side_dict, self.name)
-        recovery_obj.recovery_backup()
+        recovery_obj = TargetObject.create(self.source_path, self.target_path + "/objects", side_dict)
+        recovery_obj.recovery_backup(self.source_path)
 
         
 class BackupObject():
@@ -126,7 +129,7 @@ class BackupObject():
         print "Initializing BackupObject"
         self.source_path = source_path
         self.target_path = target_path
-        self.lstat = lstat # self.make_lstat(lstat) ... negunguje vid hore
+        self.lstat = lstat # self.make_lstat(lstat) ... nefunguje vid hore
         self.source_dir = os.path.dirname(source_path)
         self.name = os.path.basename(source_path)
 
@@ -138,9 +141,11 @@ class BackupObject():
         #first Backup
         pass
     def incremental_backup(self):
+        # Incremental Backup
         pass
 
     def recovery_backup(self):
+        # recovery Backup
         pass
 
     def file_rename(self, old_name, new_name):
@@ -193,26 +198,26 @@ class SourceObject(BackupObject):
 class TargetObject(BackupObject):
         
     @staticmethod
-    def create(source_path, target_path, side_dict, name):
+    def create(source_path, target_path, side_dict):
+        print side_dict
         lstat = side_dict['lstat']
         mode = lstat.st_mode
         if S_ISDIR(mode):      
-            return TargetDir(source_path, target_path, lstat, side_dict, name)
+            return TargetDir(source_path, target_path, lstat, side_dict)
         elif S_ISREG(mode):
-            return TargetFile(source_path, target_path, lstat, side_dict, name)
+            return TargetFile(source_path, target_path, lstat, side_dict)
         elif S_ISLNK(mode):
-            return TargetLnk(source_path, target_path, lstat, side_dict, name)
+            return TargetLnk(source_path, target_path, lstat, side_dict)
         else:
             # Unknown file
             return None
 
-    def __init__(self, source_path, target_path, lstat, side_dict, name ):
+    def __init__(self, source_path, target_path, lstat, side_dict ):
         print "Initializing TargetObject"
         print source_path
         BackupObject.__init__(self, source_path, target_path, lstat)
         self.side_dict = side_dict
         print self.side_dict
-        self.name = name # ???? self.name uz existuje v backupObject ako source_path basename
         print self.name
         
                 
@@ -287,8 +292,10 @@ class SourceDir(SourceObject):
         hash_name = hashlib.sha1()
         pi = pickle.dumps(input_dict)
         hash_name.update(pi)
-        if self.target_object != None and not os.path.exists(os.path.join(self.target, hash_name.hexdigest())): #and ...hashe sa nerovnaju...:
+        if self.target_object == None and not os.path.exists(os.path.join(self.target_path, hash_name.hexdigest())): #and ...hashe sa nerovnaju...:
             tmp = os.path.join(self.target_path, hash_name.hexdigest())
+            #print tmp
+            #print pi
             with open(tmp,"wb") as DF:
                     DF.write(pi)
                     DF.close()
@@ -323,7 +330,7 @@ class SourceDir(SourceObject):
                     return self.make_dict(self.target_object.side_dict[self.name]['hash']) #stary hash
                 else:
                     # rozny mtime
-                    new_hash = make_hash(self.source_path) # spocitaj hash a porovnaj
+                    new_hash = self.make_hash(self.source_path) # spocitaj hash a porovnaj
                     if (new_hash == self.target_object.side_dict[self.name]['hash'] or os.path.exists(os.path.join(self.target_path,new_hash))):
                         return self.make_dict(new_hash)
                     else:
@@ -371,16 +378,16 @@ class SourceLnk(SourceObject):
 
 class TargetFile(TargetObject):
     
-    def __init__(self, source_path, target_path, lstat, side_dict, name):
+    def __init__(self, source_path, target_path, lstat, side_dict):
         print "Initializing TargetFile"
         print source_path
-        TargetObject.__init__(self, source_path, target_path, lstat, side_dict, name)
+        TargetObject.__init__(self, source_path, target_path, lstat, side_dict)
 
-    def recovery_backup(self,name):
+    def recovery_backup(self, name , block_size = constants.CONST_BLOCK_SIZE):
         # reverse file_copy()
         file_name = os.path.join(self.target_path,self.side_dict['hash'])
         with open(file_name, "rb") as TF:
-            recovery_file = os.path.join(self.source_path, name)
+            recovery_file = os.path.join(self.source_path,name)
             with open(recovery_file, "wb") as RF:
                 while True:
                     block = TF.read(block_size)
@@ -390,17 +397,21 @@ class TargetFile(TargetObject):
             RF.close()
         TF.close()
 
-        
+
 class TargetDir(TargetObject):
     
     #Pomocou tejto metody treba nacitat slovnik objektov v adresari
     #do vhodnej instancnej premennej objektu triedy TargetDir napriklad v konstruktore.
     #Do tohto slovnika (nie do side_dict!) potom pristupuje metoda get_object().
-    def __init__(self, source_path, target_path, lstat , side_dict, name):
+    def __init__(self, source_path, target_path, lstat , side_dict):
         print "Initializing TargetDir"
         print source_path
-        self.loaded_dict = self.unpickling(name,target_path)
-        TargetObject.__init__(self, source_path, target_path, lstat, self.loaded_dict, name)
+        print target_path
+        print side_dict
+        #path = os.path.join(target_path, side_dict['hash'])
+        #print path
+        self.loaded_dict = self.unpickling(os.path.join(target_path, side_dict['hash']))
+        TargetObject.__init__(self, source_path, target_path, lstat, self.loaded_dict)
         #print self.side_dict
                 
     def get_object(self, name):
@@ -409,42 +420,43 @@ class TargetDir(TargetObject):
         # ak ano, vyrobi prislusny TargetObject
         # ak nie, vrati None
         if name in self.loaded_dict:
-            new_target_object = TargetObject.create(self.source_path, self.target_path, loaded_dict[name],name)
+            new_target_object = TargetObject.create(self.source_path, self.target_path, self.loaded_dict[name])
             return new_target_object 
         else: return None
 
-    def unpickling(self,file_name,target_path):
-        unpkl_file = os.path.join(target_path, file_name)
-        with open(unpkl_file, "rb") as UPF:
+    def unpickling(self, target_path):
+        #unpkl_file = os.path.join(target_path, file_name)
+        with open(target_path, "rb") as UPF:
                 pi = UPF.read()
                 UPF.close()
         return_dict = pickle.loads(pi)
         print return_dict
         return return_dict
 
-    def recovery_backup(self):
+    def recovery_backup(self,name):
         #prejst slovnik
         # ak dir tak rekurzia
         #inak .recovery_backup
         #passdef recovery_backup(self):
         #for name ,  in self.side_dict.iteritems():
-        # if IS_REG(self.side_dict[key]['lstat'].st_mode):    
-        pass
+        # if IS_REG(self.side_dict[key]['lstat'].st_mode):
+        print "///////////////////////////////////////////////////////////////////////////////"
+        print name
+        os.mkdir(name)
+        for target_object_name in self.side_dict.iterkeys():
+            new_target_object = self.get_object(target_object_name)
+            new_target_object.recovery_backup(os.path.join(self.source_path, target_object_name))
     
 class TargetLnk(TargetObject):
     
-    def __init__(self, source_path, target_path, lstat, side_dict, name):
+    def __init__(self, source_path, target_path, lstat, side_dict):
         print "Initializing TargetLnk"
         print source_path
-        TargetObject.__init__(self, source_path, target_path, lstat, side_dict, name)
+        TargetObject.__init__(self, source_path, target_path, lstat, side_dict)
 
 
-    def recovery_backup(self):
-        link_target = os.readlink(self.target_path)
-        file_name = self.target  + self.side_dict['name']
-        with open(file_name,"wb") as DF:
-                DF.write(link_target)
-        return self.file_name
+    def recovery_backup(self, name = None):
+        pass
 
                                                          
         
