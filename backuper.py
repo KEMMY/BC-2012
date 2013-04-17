@@ -111,7 +111,7 @@ class ExistingBackup(Backup):
         side_dict = self.get_backup(max_time)
         print side_dict
         recovery_obj = TargetObject.create(self.source_path, self.target_path + "/objects", side_dict)
-        recovery_obj.recovery_backup(self.source_path)
+        recovery_obj.recovery_backup()
 
         
 class BackupObject():
@@ -383,11 +383,11 @@ class TargetFile(TargetObject):
         print source_path
         TargetObject.__init__(self, source_path, target_path, lstat, side_dict)
 
-    def recovery_backup(self, name , block_size = constants.CONST_BLOCK_SIZE):
+    def recovery_backup(self, block_size = constants.CONST_BLOCK_SIZE):
         # reverse file_copy()
         file_name = os.path.join(self.target_path,self.side_dict['hash'])
         with open(file_name, "rb") as TF:
-            recovery_file = os.path.join(self.source_path,name)
+            recovery_file = os.path.join(self.source_path)#name)
             with open(recovery_file, "wb") as RF:
                 while True:
                     block = TF.read(block_size)
@@ -406,8 +406,8 @@ class TargetDir(TargetObject):
     def __init__(self, source_path, target_path, lstat , side_dict):
         print "Initializing TargetDir"
         print source_path
-        print target_path
-        print side_dict
+        #print target_path
+        #print side_dict
         #path = os.path.join(target_path, side_dict['hash'])
         #print path
         self.loaded_dict = self.unpickling(os.path.join(target_path, side_dict['hash']))
@@ -420,7 +420,7 @@ class TargetDir(TargetObject):
         # ak ano, vyrobi prislusny TargetObject
         # ak nie, vrati None
         if name in self.loaded_dict:
-            new_target_object = TargetObject.create(self.source_path, self.target_path, self.loaded_dict[name])
+            new_target_object = TargetObject.create(os.path.join(self.source_path, name), self.target_path, self.loaded_dict[name])
             return new_target_object 
         else: return None
 
@@ -433,7 +433,7 @@ class TargetDir(TargetObject):
         print return_dict
         return return_dict
 
-    def recovery_backup(self,name):
+    def recovery_backup(self):
         #prejst slovnik
         # ak dir tak rekurzia
         #inak .recovery_backup
@@ -441,11 +441,10 @@ class TargetDir(TargetObject):
         #for name ,  in self.side_dict.iteritems():
         # if IS_REG(self.side_dict[key]['lstat'].st_mode):
         print "///////////////////////////////////////////////////////////////////////////////"
-        print name
-        os.mkdir(name)
+        os.mkdir(self.source_path)
         for target_object_name in self.side_dict.iterkeys():
             new_target_object = self.get_object(target_object_name)
-            new_target_object.recovery_backup(os.path.join(self.source_path, target_object_name))
+            new_target_object.recovery_backup()#os.path.join(self.source_path, target_object_name))
     
 class TargetLnk(TargetObject):
     
@@ -454,9 +453,12 @@ class TargetLnk(TargetObject):
         print source_path
         TargetObject.__init__(self, source_path, target_path, lstat, side_dict)
 
+    def read_backuped_lnk(self):
+        file_name = os.path.join(self.target_path, self.side_dict['hash'])
+        with open(file_name, "rb") as TF:
+            backuped_link_name = TF.read()
+        return backuped_link_name
 
-    def recovery_backup(self, name = None):
-        pass
-
-                                                         
-        
+    def recovery_backup(self):
+        os.symlink(self.read_backuped_lnk(), self.source_path )
+    
