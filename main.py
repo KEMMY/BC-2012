@@ -1,3 +1,4 @@
+
 from backuper import *
 
 def initial_backup():
@@ -44,7 +45,7 @@ def recovery_backup():
     print ""
     print "//////////////////////Start Recovery Backup/////////////////////////"
     print ""
-    rec_back = ExistingBackup('/home/kmm/Plocha/source',target.get_path(),'2013-04-11T23:56:07')
+    rec_back = ExistingBackup('/home/kmm/Plocha/target/zaloha',target.get_path(),'2013-04-11T23:56:07')
     print rec_back.source_path
     print rec_back.target_path
     print rec_back.name
@@ -52,9 +53,9 @@ def recovery_backup():
     
 def main():
     print "Hello"
-    initial_backup()
+    #initial_backup()
     #incremental_backup()
-    #recovery_backup()
+    recovery_backup()
 
 if  __name__ == "__main__":
     main()
