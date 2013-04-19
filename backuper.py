@@ -231,6 +231,13 @@ class TargetObject(BackupObject):
             # Unknown file
             return None
 
+    def recovery_stat(self, object_path, lstat):
+        #os.lchmod(object_path, lstat.st_mode)  AttributeError: 'module' object has no attribute 'lchmod'
+        os.chmod(object_path, lstat.st_mode)
+        os.lchown(object_path, lstat.st_uid, lstat.st_gid)
+        time = lstat.st_atime, lstat.st_mtime
+        os.utime(object_path, time)
+        
     def __init__(self, source_path, target, lstat, side_dict ):
         print "Initializing TargetObject"
         print source_path
@@ -413,6 +420,7 @@ class TargetFile(TargetObject):
                         break
             RF.close()
         TF.close()
+        self.recovery_stat(recovery_file, self.side_dict['lstat'])
 
 
 class TargetDir(TargetObject):
@@ -478,3 +486,4 @@ class TargetLnk(TargetObject):
 
     def recovery_backup(self):
         os.symlink(self.read_backuped_lnk(), self.source_path )
+        self.recovery_stat(self.source_path, self.side_dict['lstat'])
