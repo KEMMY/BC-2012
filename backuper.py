@@ -45,11 +45,10 @@ Trieda Target by mala vediet aj inicializovat novy target-ovy adresar
     
 class Backup():
                
-    def __init__(self, source_path, target, existing_backup = None):
+    def __init__(self, source_path, target):
         #self.time = self.get_time() # zbytocne ?!
         self.source_path = source_path
         self.target = target
-        self.existing_backup = existing_backup
         #self.backup_time = existing_backup.max_time # napr. 2012-12-12T12:12 / v tedy sa pouzije namiesot self.time
                 
                 
@@ -63,7 +62,7 @@ class Backup():
             BF.write(pickled_dict)
             BF.close()
                         
-    def get_backup(self, time):
+    def get_backup(self, time): 
         file_name = self.target.get_backup_path(time)
         with open(file_name, "rb") as BF:
                 load_dict=BF.read()
@@ -71,22 +70,13 @@ class Backup():
         side_dict = pickle.loads(load_dict)
         return side_dict
 
-    # uz netreba read_latest_backup nahradza tuto funkciu
-    def get_latest_time(self,target): # backups adresar
-        max_time = '0000-00-00T00:00:00'
-        target_path = os.listdir(os.path.join(target.get_path(), "backups"))
-        for backup in target_path:
-            if ( backup > max_time):
-                max_time = backup
-        return max_time
-
-    def update_latest_backup(self,time):
+    def update_latest_backup(self,time):# neskor v target
         file_name = self.target.get_latest_path()
         with open(file_name, "wb") as LF:
             LF.write(time)
             LF.close()
 
-    def read_latest_backup(self, target):
+    def read_latest_backup(self, target):# neskor v target
         file_name = target.get_latest_path()
         with open(file_name, "rb") as LF:
             time = LF.read()
@@ -98,7 +88,7 @@ class Backup():
         # New Backup
         pass
  
-    def recovery_backup(self):
+    def recover(self):
         pass
         
 
@@ -106,29 +96,22 @@ class NewBackup(Backup):
     #back = NewBackup('/home/kmm/Plocha/source',target.get_path()) + None
     def __init__(self, source_path, target, existing_backup = None):
         print "Initializing NewBackup"
-        Backup.__init__(self, source_path, target, existing_backup) # ExistingBackup.backup_time
+        self.existing_backup = existing_backup
+        Backup.__init__(self, source_path, target) 
 
     def backup(self):
         # vytvori novu zalohu
         self.target.init_target_dir()
         if self.existing_backup == None:    
-            new_object = SourceObject.create(self.source_path, self.target, None)
-            side_dict = new_object.backup()
-            backup_time = self.get_time()
-            self.make_backup(backup_time,side_dict) # self.get_time alebo self.time ?
-            self.update_latest_backup(backup_time)
+            trg_object =None
         else :
-            #side_dict = self.get_backup(self.backup_time)
-            trg_object = self.existing_bacukp.get_root_object() #TargetObject.create(self.source_path, self.target, side_dict)
-            src_object = SourceObject.create(self.source_path,self.target, trg_object)
-            new_side_dict = src_object.backup()
-            backup_time = self.get_time()
-            self.make_backup(backup_time, new_side_dict)
-            self.update_latest_backup(backup_time)
-
-    def incremental_backup(self):
-        pass
-
+            trg_object = self.existing_bacukp.get_root_object()
+        src_object = SourceObject.create(self.source_path, self.target, trg_object)
+        new_side_dict = src_object.backup()
+        backup_time = self.get_time()
+        self.make_backup(backup_time, new_side_dict)
+        self.update_latest_backup(backup_time)
+    
 
 class ExistingBackup(Backup):
     #nacitanie existujucich zaloh
@@ -136,8 +119,8 @@ class ExistingBackup(Backup):
     def __init__(self, source_path, target, backup_time):
         print "Initializing ExistingBackup"
         max_time = self.read_latest_backup(target)
-        self.time = backup_time
-        Backup.__init__(self, source_path, target, backup_time)
+        self.backup_time = backup_time
+        Backup.__init__(self, source_path, target)
 
     def backup(self):
         pass
@@ -156,13 +139,13 @@ class ExistingBackup(Backup):
         side_dict = self.get_backup(self.time)
         print side_dict
         recovery_obj = TargetObject.create(self.source_path, self.target, side_dict)
-        recovery_obj.recovery_backup()
+        recovery_obj.recover()
+
 
 class LatestBackup(ExistingBackup):
     def __init__(self, source_path, target, backup_name):
         print "Initializing LatestBackup"
-        self.max_time = self.read_latest_backup(target)
-        Backup.__init__(self, source_path, target, max_time)
+        ExistingBackup.__init__(self, source_path, target, backup_name)
         
 class BackupObject():
 
@@ -194,7 +177,7 @@ class BackupObject():
         # Incremental Backup
         pass
 
-    def recovery_backup(self):
+    def recover(self):
         # recovery Backup
         pass
 
@@ -224,14 +207,6 @@ class SourceObject(BackupObject):
         BackupObject.__init__(self, source_path, target, lstat)
         self.target_object = target_object
 
-    def make_hash(self, src_file, block_size = constants.CONST_BLOCK_SIZE):
-        file_hash = hashlib.sha1()
-        with open(src_file, "rb") as SF :
-            while True:
-                block = SF.read(block_size)
-                file_hash.update(block)
-                if not block : break
-        return file_hash.hexdigest()
         
     def exist_backup(self):
         file_hash = self.make_hash(self.source)
@@ -261,13 +236,22 @@ class TargetObject(BackupObject):
         else:
             # Unknown file
             return None
-
+        
     def recovery_stat(self, object_path, lstat):
         #os.lchmod(object_path, lstat.st_mode)  AttributeError: 'module' object has no attribute 'lchmod'
-        os.chmod(object_path, lstat.st_mode)
-        os.lchown(object_path, lstat.st_uid, lstat.st_gid)
-        time = lstat.st_atime, lstat.st_mtime
-        os.utime(object_path, time)
+        try :
+            time = lstat.st_atime, lstat.st_mtime
+            os.utime(object_path, time)
+            try:
+                os.chmod(object_path, lstat.st_mode) # stat.S_IMODE ?
+                try:
+                    os.lchow(object_path, lstat.st_uid, lstat.st_gid)
+                except OSError:
+                    pass # dolnit printy / handle exceptetion
+            except OSError:
+                pass
+        except OSError:
+            pass
         
     def __init__(self, source_path, target, lstat, side_dict ):
         print "Initializing TargetObject"
@@ -310,10 +294,7 @@ class SourceFile(SourceObject):
                 if not block : break
         return file_hash.hexdigest()
 
-    def initial_backup(self):
-        hash = self.file_copy()
-        return self.make_side_dict(hash)
-    
+   
     def backup(self):
         # ak sa zmenil mtime, tak ma zmysel pozerat sa na obsah suboru
         # inak sa mozno zmenili zaujimave metadata
@@ -327,7 +308,7 @@ class SourceFile(SourceObject):
                 else:
                     # rozny mtime
                     new_hash = self.make_hash(self.source_path) # spocitaj hash a porovnaj
-                    if (new_hash == self.target_object.side_dict[self.name]['hash'] or os.path.exists(os.path.join(self.target,new_hash))):
+                    if (new_hash == self.target_object.side_dict[self.name]['hash'] or os.path.exists(os.path.join(self.target.get_object_path(),new_hash))):
                         return self.make_side_dict(new_hash)
                     else:
                         hash = self.file_copy()
@@ -358,17 +339,6 @@ class SourceDir(SourceObject):
                     DF.write(pi)
                     DF.close()
         return hash_name.hexdigest()
-        
-    def initial_backup(self):
-        initial_dict = {}
-        for F in os.listdir(self.source_path):
-                next_path = os.path.join(self.source_path,F)
-                new_object = SourceObject.create(next_path, self.target, None)
-                side_dict = new_object.initial_backup()
-                initial_dict[F] = side_dict
-        print initial_dict
-        hash = self.pickling(initial_dict)
-        return self.make_side_dict(hash)
 
     def backup(self):
         #Metoda SourceDir.incremental_backup() je zmatocna.
@@ -384,13 +354,11 @@ class SourceDir(SourceObject):
                 next_path = os.path.join(self.source_path,F)
                 if self.target_object != None:
                     oldF = self.target_object.get_object(F)
-                    new = SourceObject.create(next_path,self.target,oldF)
-                    side_dict = new.incremental_backup()
-                    main_dict[F] = side_dict
                 else:
-                    new_object = SourceObject.create(next_path, self.target, None)
-                    side_dict = new_object.initial_backup()
-                    main_dict[F] = side_dict
+                    oldF = None
+                new_object = SourceObject.create(next_path, self.target, oldF)
+                side_dict = new_object.backup()
+                main_dict[F] = side_dict
         print main_dict
         hash = self.pickling(main_dict)
         return self.make_side_dict(hash)
@@ -424,8 +392,9 @@ class SourceLnk(SourceObject):
                     return self.make_dict(self.target_object.side_dict[self.name]['hash']) #stary hash
                 else:
                     # rozny mtime
-                    new_hash = make_hash(self.source_path) # spocitaj hash a porovnaj
-                    if (new_hash == self.target_object.side_dict[self.name]['hash'] or os.path.exists(os.path.join(self.target_path,new_hash))):
+                    link_target = os.readlink(self.source_path)
+                    new_hash = hashlib.sha1(link_target) # spocitaj hash a porovnaj
+                    if (new_hash.hexdigest() == self.target_object.side_dict[self.name]['hash'] or os.path.exists(self.target.get_object_path(new_hash.hexdigest()))):
                         return self.make_dict(new_hash)
                     else:
                         return self.make_side_dict(self.make_lnk())
@@ -440,7 +409,7 @@ class TargetFile(TargetObject):
         print source_path
         TargetObject.__init__(self, source_path, target, lstat, side_dict)
 
-    def recovery_backup(self, block_size = constants.CONST_BLOCK_SIZE):
+    def recover(self, block_size = constants.CONST_BLOCK_SIZE):
         # reverse file_copy()
         file_name = self.target.get_object_path(self.side_dict['hash'])
         with open(file_name, "rb") as TF:
@@ -491,7 +460,7 @@ class TargetDir(TargetObject):
         print return_dict
         return return_dict
 
-    def recovery_backup(self):
+    def recover(self):
         #prejst slovnik
         # ak dir tak rekurzia
         #inak .recovery_backup
@@ -502,7 +471,7 @@ class TargetDir(TargetObject):
         os.mkdir(self.source_path)
         for target_object_name in self.side_dict.iterkeys():
             new_target_object = self.get_object(target_object_name)
-            new_target_object.recovery_backup()#os.path.join(self.source_path, target_object_name))
+            new_target_object.recover()#os.path.join(self.source_path, target_object_name))
     
 class TargetLnk(TargetObject):
     
@@ -517,6 +486,12 @@ class TargetLnk(TargetObject):
             backuped_link_name = TF.read()
         return backuped_link_name
 
-    def recovery_backup(self):
+    def recovery_stat(self, object_path, lstat):
+        try:
+            os.lchow(object_path, lstat.st_uid, lstat.st_gid)
+        except OSError:
+            pass # dolnit printy / handle exceptetion
+
+    def recover(self):
         os.symlink(self.read_backuped_lnk(), self.source_path )
         self.recovery_stat(self.source_path, self.side_dict['lstat'])
