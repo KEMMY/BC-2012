@@ -40,7 +40,7 @@ Trieda Target by mala vediet aj inicializovat novy target-ovy adresar
 
     def get_latest_path(self):
         latest_tmp_path = os.path.join(self.target_path,"backups")
-        return os.path.join(latest_tmp_path, "Latest")
+        return os.path.join(latest_tmp_path, "latest")
         
     
 class Backup():
@@ -105,7 +105,7 @@ class NewBackup(Backup):
         if self.existing_backup == None:    
             trg_object =None
         else :
-            trg_object = self.existing_bacukp.get_root_object()
+            trg_object = self.existing_backup.get_root_object()
         src_object = SourceObject.create(self.source_path, self.target, trg_object)
         new_side_dict = src_object.backup()
         backup_time = self.get_time()
@@ -118,15 +118,17 @@ class ExistingBackup(Backup):
     
     def __init__(self, source_path, target, backup_time):
         print "Initializing ExistingBackup"
-        max_time = self.read_latest_backup(target)
-        self.backup_time = backup_time
+        if backup_time == "latest":
+            self.backup_time = self.read_latest_backup(target)
+        else:
+            self.backup_time = backup_time
         Backup.__init__(self, source_path, target)
 
     def backup(self):
         pass
 
     def get_root_object(self):
-        side_dict = self.get_backup(self.time)
+        side_dict = self.get_backup(self.backup_time)
         return TargetObject.create(self.source_path, self.target, side_dict)
         
     #Recovery = ExistingBackup('/home/kmm/Plocha/source',target.get_path(),'2013-03-29T18:57:12')
@@ -136,16 +138,11 @@ class ExistingBackup(Backup):
     
     def recovery_backup(self):
         #max_time = self.get_latest_time(self.target)
-        side_dict = self.get_backup(self.time)
+        side_dict = self.get_backup(self.backup_time)
         print side_dict
         recovery_obj = TargetObject.create(self.source_path, self.target, side_dict)
         recovery_obj.recover()
 
-
-class LatestBackup(ExistingBackup):
-    def __init__(self, source_path, target, backup_name):
-        print "Initializing LatestBackup"
-        ExistingBackup.__init__(self, source_path, target, backup_name)
         
 class BackupObject():
 
@@ -242,16 +239,16 @@ class TargetObject(BackupObject):
         try :
             time = lstat.st_atime, lstat.st_mtime
             os.utime(object_path, time)
-            try:
-                os.chmod(object_path, lstat.st_mode) # stat.S_IMODE ?
-                try:
-                    os.lchow(object_path, lstat.st_uid, lstat.st_gid)
-                except OSError:
-                    pass # dolnit printy / handle exceptetion
-            except OSError:
-                pass
         except OSError:
             pass
+        try:
+            os.chmod(object_path, S_IMODE(lstat.st_mode))
+        except OSError:
+            pass
+        try:
+            os.lchown(object_path, lstat.st_uid, lstat.st_gid)
+        except OSError:
+            pass # dolnit printy / handle exceptetion
         
     def __init__(self, source_path, target, lstat, side_dict ):
         print "Initializing TargetObject"
@@ -304,11 +301,12 @@ class SourceFile(SourceObject):
                     and self.lstat.st_size == self.target_object.lstat.st_size):
                     # rovanky mtime
                     # vyrob side dict stary hash + aktualny lstat
-                    return self.make_side_dict(self.target_object.side_dict[self.name]['hash']) #stary hash
+                    return self.make_side_dict(self.target_object.side_dict['hash']) #stary hash
                 else:
                     # rozny mtime
                     new_hash = self.make_hash(self.source_path) # spocitaj hash a porovnaj
-                    if (new_hash == self.target_object.side_dict[self.name]['hash'] or os.path.exists(os.path.join(self.target.get_object_path(),new_hash))):
+                    if (new_hash == self.target_object.side_dict['hash']
+                        or os.path.exists(self.target.get_object_path(new_hash))):
                         return self.make_side_dict(new_hash)
                     else:
                         hash = self.file_copy()
@@ -328,17 +326,17 @@ class SourceDir(SourceObject):
         if self.target_object != None: print self.target_object.side_dict
 
     def pickling(self, input_dict):
-        hash_name = hashlib.sha1()
         pi = pickle.dumps(input_dict)
-        hash_name.update(pi)
-        if self.target_object == None and not os.path.exists(self.target.get_object_path(hash_name.hexdigest())): #and ...hashe sa nerovnaju...:
-            tmp = self.target.get_object_path(hash_name.hexdigest())
+        hash_name = hashlib.sha1(pi).hexdigest()
+        if (self.target_object == None
+            or not os.path.exists(self.target.get_object_path(hash_name))): #or ...hashe sa nerovnaju...:
+            tmp = self.target.get_object_path(hash_name)
             #print tmp
             #print pi
             with open(tmp,"wb") as DF:
                     DF.write(pi)
                     DF.close()
-        return hash_name.hexdigest()
+        return hash_name
 
     def backup(self):
         #Metoda SourceDir.incremental_backup() je zmatocna.
@@ -393,8 +391,9 @@ class SourceLnk(SourceObject):
                 else:
                     # rozny mtime
                     link_target = os.readlink(self.source_path)
-                    new_hash = hashlib.sha1(link_target) # spocitaj hash a porovnaj
-                    if (new_hash.hexdigest() == self.target_object.side_dict[self.name]['hash'] or os.path.exists(self.target.get_object_path(new_hash.hexdigest()))):
+                    new_hash = hashlib.sha1(link_target).hexdigest() # spocitaj hash a porovnaj
+                    if (new_hash == self.target_object.side_dict[self.name]['hash']
+                        or os.path.exists(self.target.get_object_path(new_hash))):
                         return self.make_dict(new_hash)
                     else:
                         return self.make_side_dict(self.make_lnk())
@@ -413,16 +412,16 @@ class TargetFile(TargetObject):
         # reverse file_copy()
         file_name = self.target.get_object_path(self.side_dict['hash'])
         with open(file_name, "rb") as TF:
-            recovery_file = os.path.join(self.source_path)#name)
-            with open(recovery_file, "wb") as RF:
+            #recovery_file = os.path.join(self.source_path)#name)
+            with open(self.source_path, "wb") as RF:
                 while True:
                     block = TF.read(block_size)
                     RF.write(block)
                     if not block:
                         break
-            RF.close()
-        TF.close()
-        self.recovery_stat(recovery_file, self.side_dict['lstat'])
+                RF.close()
+            TF.close()
+        self.recovery_stat(self.source_path, self.side_dict['lstat'])
 
 
 class TargetDir(TargetObject):
@@ -438,7 +437,7 @@ class TargetDir(TargetObject):
         #path = os.path.join(target_path, side_dict['hash'])
         #print path
         self.loaded_dict = self.unpickling(target.get_object_path( side_dict['hash']))
-        TargetObject.__init__(self, source_path, target, lstat, self.loaded_dict)
+        TargetObject.__init__(self, source_path, target, lstat, side_dict)
         #print self.side_dict
                 
     def get_object(self, name):
@@ -468,10 +467,13 @@ class TargetDir(TargetObject):
         #for name , in self.side_dict.iteritems():
         # if IS_REG(self.side_dict[key]['lstat'].st_mode):
         print "///////////////////////////////////////////////////////////////////////////////"
-        os.mkdir(self.source_path)
-        for target_object_name in self.side_dict.iterkeys():
+        if not os.path.exists(self.source_path):
+            os.mkdir(self.source_path)
+        for target_object_name in self.loaded_dict.iterkeys():
             new_target_object = self.get_object(target_object_name)
             new_target_object.recover()#os.path.join(self.source_path, target_object_name))
+        # obnovit metadata adresara!!!!!!!!!!!
+        self.recovery_stat(self.source_path, self.side_dict['lstat'])
     
 class TargetLnk(TargetObject):
     
@@ -488,7 +490,7 @@ class TargetLnk(TargetObject):
 
     def recovery_stat(self, object_path, lstat):
         try:
-            os.lchow(object_path, lstat.st_uid, lstat.st_gid)
+            os.lchown(object_path, lstat.st_uid, lstat.st_gid)
         except OSError:
             pass # dolnit printy / handle exceptetion
 
