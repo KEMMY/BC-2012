@@ -1,0 +1,196 @@
+#!/usr/bin/env python
+
+from termcolor import colored # kniznica pre farebne vypisy v terminaly
+from backup_lib import *
+import sys
+
+
+def initial_backup(source_path, target_path):
+    target = Target(target_path)#'/home/kmm/Plocha/target/new_target')
+    back = NewBackup(source_path,target) # '/home/kmm/Plocha/source'
+    back.backup()
+
+
+def incremental_backup(source_path, target_path, time):
+    target = Target(target_path)#'/home/kmm/Plocha/target/new_target')
+    old_back = ExistingBackup(source_path, target, time)
+    #'/home/kmm/Plocha/target/zaloha',target,'2013-04-29T21:00:42')
+    inc_back = NewBackup(source_path,target,old_back)
+    inc_back.backup()
+
+def recovery_backup(source_path, target_path, time):
+    target = Target(target_path)#'/home/kmm/Plocha/target/new_target')
+    rec_back = ExistingBackup(source_path, target, time)
+    #'/home/kmm/Plocha/target/zaloha',target,'2013-04-29T21:00:42') # treba vediet cas
+    rec_back.recovery_backup()
+
+def print_help():
+    
+    start = "\033[1m"
+    end = "\033[0;0m"
+    print start + " --- Welcome in temporary Backuper quide ---"
+    print ""
+    print "Decsription" +end
+    print "\t"+"Backuper is a backup tool, to backup and archiving your important files in safe and high efective way form one directory to another. A remote incremental backup of all your files could be easy as " + start + "backuper backup /path/to/source/directory /path/to/target/direcory" + end + " Backuper have two distinct purposes. The primary purpose is to recover data after its loss, be it by data deletion or corruption. Data loss can be a common experience of computer users. The secondary purpose of backuper is to recover data from an r data from an earlier time, according to a user-defined data retention policy "
+    print ""
+    print start + "Usage" + end
+    print "\t"+ " backuper" + start + " KEY "+ end + "/path/to/source/directory  /path/to/target/directory" + start + " optinal settings " + end
+    print ""
+    print start + "KEY-s" + end
+    print "\t" + start + " --help " + end + " - show mannual"
+    print "\t" + start + " --list " + end + "/path/to/backups" + " - show backups list "
+    print "\t" + "\t" + " oder in listed backups for example : backuper recover /source/repo /recover/target/ "
+    print "\t" + start + " init " + end + " path/to/source/directory  /path/to/target/directory [ '--list']Made first initial backup, create objects an backups directory " + " default set as " + start + "lates" +end
+    print "\t" + start + " backup " + end + " path/to/source/directory  /path/to/target/directory ['--list'] " + " - Made incremental backups default set as " + start + "lates" +end
+    print "\t" + start + " recover " + end + " path/to/bacuped/files  /path/to/recover/directory " + " - default set as " + start + "lates" +end
+    print ""
+    print start + "Optional settings" + end
+    print "\t" + start + " --list " + end + " - show list"
+    print "\t" + start + " 2013-04-29T21:00:42 " + end + " - exaclz listed backup time in ISO time format"
+    
+    
+
+def print_list(backup_path):
+    print backup_path
+    backup_list = os.listdir(backup_path)
+    backup_list.sort()
+    for backup_time in backup_list:
+        if backup_time == "latest":
+            with open(os.path.join(backup_path,"latest"), "rb") as LF:
+                latest_print = LF.read()
+            LF.close()
+            print  latest_print + " > " + backup_time 
+        else : print backup_time  # "\t" +
+
+def get_backup(order, backup_path):
+    if order == -1 : return "latest"
+    else :
+        backup_list = os.listdir(backup_path)
+        return backup_list()
+        #with open(os.path.join(target_path,"backups"), "rb" as LF:
+                  
+        
+def get_time(time_string):
+    if len(time_string) > 4 or len(time_string) < 3:
+        return -1 # -1 pre latest
+    else :
+        return time_string[1:2]
+    
+def main(argv):
+    #print "Hello"
+    start = "\033[1m"
+    end = "\033[0;0m"
+    default_time = "latest"
+    if len(argv) > 3 and len(argv) < 6: # 4 - 6 argumentov
+        if len(argv) < 5 : # len 4 argumenty
+            if argv[1] == "init":
+                if os.path.exists(argv[2]) :
+                    if os.path.exists(argv[3]):
+                        initial_backup(argv[2],argv[3])
+                    else :
+                        print "Neexistujuca cesta: " + argv[3]
+                else :
+                    print "Neexistujuca cesta: " + argv[2]
+            #print " Init take exactly 3 arguments" # argv[4] ak je ignorujem vzhlas chybu
+            elif argv[1] == "backup":
+                if os.path.exists(argv[2]) :
+                    if os.path.exists(argv[3]):
+                            incremental_backup(argv[2],argv[3], default_time)
+                    else :
+                        print "Neexistujuca cesta: " + argv[3]
+                else :
+                    print "Neexistujuca cesta: " + argv[2]
+            
+
+            elif argv[1] == "recover":
+                if os.path.exists(argv[3]) :
+                    time_path = os.path.join(os.path.join(argv[3],"target/backups"), default_time)
+                    if os.path.exists(time_path):
+                        recovery_backup(argv[2],argv[3], default_time)
+                    else :
+                        print "Neexistujuci cas zalohy: " + argv[4] + time_path
+                else :
+                    print "Neexistujuca cesta: " + argv[3]
+            
+        else : # 5 argumentov riesim aj optional argumenty
+            if argv[1] == "init":
+                if argv[4]:
+                    print "'Initial' require exactly 3 arguments !"
+                
+                else:
+                    if os.path.exists(argv[2]) :
+                        if os.path.exists(argv[3]):
+                            initial_backup(argv[2],argv[3])
+                        else :
+                            print "Neexistujuca cesta: " + argv[3]
+                    else :
+                        print "Neexistujuca cesta: " + argv[2]
+
+            elif argv[1] == "backup":
+                if os.path.exists(argv[2]) :
+                    if os.path.exists(argv[3]):
+                        if argv[4] == default_time:
+                            incremental_backup(argv[2],argv[3], default_time)
+                        elif argv[4] == "--list": # ak list vipis list
+                            print print_list(os.path.join(argv[3], "target/backups"))
+                        else :
+                            #order = get_time(argv[4]) # ak dostane  123:457.... 
+                            time_path = os.path.join(os.path.join(argv[3],"target/backups"), argv[4])
+                            if os.path.exists(time_path):
+                                incremental_backup(argv[2],argv[3], argv[4])
+                            else :
+                                print time_path
+                                print "Neexistujuci cas zalohy:" + argv[4]
+                    else :
+                        print "Neexistujuca cesta: " + argv[3]
+                else :
+                    print "Neexistujuca cesta: " + argv[2]
+            
+
+            elif argv[1] == "recover":
+                if os.path.exists(argv[2]):
+                    if os.path.exists(argv[3]):
+                        if argv[4] == "--list":
+                            print print_list(os.path.join(argv[3], "target/backups"))
+                        else :
+                            time_path = os.path.join(os.path.join(argv[3],"target/backups"), argv[4])
+                            if os.path.exists(time_path):
+                                recovery_backup(argv[2],argv[3], argv[4])
+                            else :
+                                print "Neexistujuci cas zalohy: " + argv[4] + time_path
+                    else :
+                            print "Neexistujuca cesta: " + argv[3]
+                else : print argv[4]
+            else :
+                print "Please return with : " + start + " backuper -- help" + end
+            
+
+    elif len(argv) > 5 : print_help()
+    elif len(argv) < 4 :
+        if len(argv) == 2 :
+            if argv[0] == "backuper" and argv[1] == "--help" :
+                print_help()
+            else :
+                print "Command doesn't exist"
+                print "Please return with : " + start + " backuper -- help" + end
+        
+        print "Please return with : " + start + " backuper -- help" + end
+    else :
+        print "Nesprane argumenty" # sem sa ani nikdy nedostane
+        
+    #backup()
+    #incremental_backup()
+    #recovery_backup()
+
+if  __name__ == "__main__":
+    #print_list("/home/kmm/Plocha/target/target/backups")
+    #print_help()
+    main(sys.argv) #od 1 po nevidim
+    #cas =  get_time("[2]")
+    #print cas
+#python main.py init /home/kmm/Plocha/source  /home/kmm/Plocha/target/new_target time
+# pozor pri rec je 3 argument cesta kam obnovit zalohu
+#python main.py rec /home/kmm/Plocha/target/zaloha  /home/kmm/Plocha/target/new_target latest
+#python main.py init /home/kmm/Plocha/source  /home/kmm/Plocha/target/new_target time
+# python main.py inc /home/kmm/Plocha/source  /home/kmm/Plocha/target/new_target latest
+
