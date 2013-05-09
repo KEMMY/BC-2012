@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-from termcolor import colored # kniznica pre farebne vypisy v terminaly
 from backup_lib import *
 import sys
 
@@ -26,27 +25,25 @@ def recovery_backup(source_path, target_path, time):
 
 def print_help():
     
-    start = "\033[1m"
-    end = "\033[0;0m"
-    print start + " --- Welcome in temporary Backuper quide ---"
+    print " --- Welcome in temporary Backuper quide ---"
     print ""
-    print "Decsription" +end
+    print "Decsription" 
     print "\t"+"Backuper is a backup tool, to backup and archiving your important files in safe and high efective way form one directory to another. A remote incremental backup of all your files could be easy as " + start + "backuper backup /path/to/source/directory /path/to/target/direcory" + end + " Backuper have two distinct purposes. The primary purpose is to recover data after its loss, be it by data deletion or corruption. Data loss can be a common experience of computer users. The secondary purpose of backuper is to recover data from an r data from an earlier time, according to a user-defined data retention policy "
     print ""
-    print start + "Usage" + end
+    print "Usage" 
     print "\t"+ " backuper" + start + " KEY "+ end + " source-dir target-dir" + start + " optinal settings " + end
     print ""
-    print start + "KEY-s" + end
-    print "\t" + start + " --help " + end + " - show mannual"
-    print "\t" + start + " --list " + end + "backups-dir" + " - show backups list "
+    print "KEY-s"
+    print "\t" + " --help " + " - show mannual"
+    print "\t" + " --list " + "backups-dir" + " - show backups list "
     print "\t" + "\t" + " oder in listed backups for example : backuper recover /source/repo /recover/target/ "
-    print "\t" + start + " init " + end + " source-dir  target-dir [ '--list']Made first initial backup, create objects an backups directory " + " default set as " + start + "lates" +end
-    print "\t" + start + " backup " + end + " source-dir  target-dir ['--list'] " + " - Made incremental backups default set as " + start + "lates" +end
-    print "\t" + start + " recover " + end + " source-dir  target-dir " + " - default set as " + start + "lates" +end
+    print "\t" + " init " + " source-dir  target-dir [ '--list']Made first initial backup, create objects an backups directory " + " default set as " + start + "lates" +end
+    print "\t" + " backup "  + " source-dir  target-dir ['--list'] " + " - Made incremental backups default set as " + "lates" 
+    print "\t" + " recover " + " source-dir  target-dir " + " - default set as " +  "lates"
     print ""
-    print start + "Optional settings" + end
-    print "\t" + start + " --list " + end + " - show list"
-    print "\t" + start + " 2013-04-29T21:00:42 " + end + " - exactly listed backup time in ISO time format"
+    print "Optional settings" 
+    print "\t"  + " --list " + " - show list"
+    print "\t" + " 2013-04-29T21:00:42 "  + " - exactly listed backup time in ISO time format"
     
     
 
